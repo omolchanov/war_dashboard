@@ -1,0 +1,27 @@
+Category,Task,Description,Min Hours,Max Hours
+Data Part,Data Source Identification,Research and select relevant data sources,16,40
+Data Part,API/Web Scraping Setup,Implement scripts to collect data from APIs/websites,24,56
+Data Part,Data Storage Design,Design database schema and storage architecture,16,32
+Data Part,Storage Implementation,Set up and configure database/cloud storage,16,40
+Data Part,Data Cleaning Pipeline,Develop scripts for cleaning and normalizing data,24,48
+Data Part,Feature Extraction,Extract relevant features for modeling,16,40
+Data Part,Predictive Model Selection,Research and select suitable modeling techniques,16,32
+Data Part,Model Training & Validation,Train models and validate performance,32,80
+Back End,Storage Implementation,Set up and configure database/cloud storage,16,40
+Back End,API/Web Scraping Setup,Implement scripts to collect data from APIs/websites,24,56
+Back End,Model Training & Validation,Train models and validate performance,32,80
+Back End,Ethical/Legal Compliance Review,Review and implement data privacy and legal safeguards,16,32
+Back End,User Authentication,Implement secure authentication and authorization mechanisms,16,40
+Back End,User Feedback Handling,Set up backend for storing and managing user feedback,16,32
+Front End,UI Design,Design user interface for data exploration and visualization,16,40
+Front End,UI Implementation,Develop frontend and integrate with backend,24,56
+Front End,User Authentication UI,Design and implement login profile and access status screens,16,40
+Front End,User Feedback UI,Design and implement feedback form and confirmation screens,16,32
+Front End,Documentation Access UI,Integrate documentation access and search in the user interface,16,32
+QA,Testing & Bug Fixing,Test all modules and fix bugs,24,56
+QA,Regression Testing,Ensure new changes do not break existing features,16,32
+PM,Project Planning,Define scope schedule and resources,16,32
+PM,Progress Tracking,Monitor progress update stakeholders,16,32
+PM,Stakeholder Communication,Regular updates and feedback sessions,16,32
+Documentation,Documentation,Write user and developer documentation,16,32
+Totals,,Total min/max hours for all tasks,496,1164
