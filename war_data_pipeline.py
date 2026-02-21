@@ -1,8 +1,7 @@
 """
 WarDashboard Data Pipeline
-Fetches Ukrainian MoD Russian losses data, builds a pandas DataFrame,
-and plots histograms of loss metrics.
-Data source: rus-losses-tracker (combat.fyi) - aggregates Ukrainian MoD daily reports.
+Fetches Russian losses data, builds a pandas DataFrame, and plots histograms.
+Data source: LOSSES_DATA_URL (russian-casualties.in.ua daily API).
 """
 
 from pathlib import Path
@@ -11,46 +10,34 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 
-# Data source: Ukrainian MoD losses via rus-losses-tracker (trusted mirror)
-# https://combat.fyi | https://github.com/Larzs/rus-losses-tracker
-DATA_URL = "https://cdn.jsdelivr.net/gh/larzs/rus-losses-tracker@master/public/list.JSON"
+LOSSES_DATA_URL = "https://russian-casualties.in.ua/api/v1/data/json/daily"
 FIGURES_DIR = Path(__file__).parent / "output/images/mod_analysis"
 
 
-def fetch_raw_data() -> list[dict]:
-    """Fetch raw loss data from CDN (Ukrainian MoD / General Staff reports)."""
-    resp = requests.get(DATA_URL, timeout=30)
+def fetch_raw_data() -> dict:
+    """Fetch raw daily loss data from russian-casualties.in.ua API."""
+    resp = requests.get(LOSSES_DATA_URL, timeout=30)
     resp.raise_for_status()
     return resp.json()
 
 
-def parse_to_dataframe(raw: list[dict]) -> pd.DataFrame:
-    """Parse raw JSON into a pandas DataFrame. Filter from Feb 2022 onward."""
+def parse_to_dataframe(raw: dict) -> pd.DataFrame:
+    """Parse russian-casualties.in.ua API response into a pandas DataFrame. Filter from Feb 2022 onward."""
+    data = raw.get("data", {})
     rows = []
-    for entry in raw:
-        date_str = entry.get("date")
-        if not date_str:
+    for date_str, day in data.items():
+        # date_str is "YYYY.MM.DD"
+        if not date_str or not day:
             continue
         # Filter: from 2022-02-01 onward
-        if date_str < "2022-02-01":
+        norm = date_str.replace(".", "-")
+        if norm < "2022-02-01":
             continue
-        losses = entry.get("losses", {})
         rows.append({
-            "date": pd.to_datetime(date_str),
-            "personnel": losses.get("personnel", 0),
-            "tanks": losses.get("tanks", 0),
-            "apv": losses.get("apv", 0),
-            "artillery_units": losses.get("artillery_units", 0),
-            "mlrs": losses.get("mlrs", 0),
-            "air_defense_systems": losses.get("air_defense_systems", 0),
-            "planes": losses.get("planes", 0),
-            "helicopters": losses.get("helicopters", 0),
-            "boats_and_warships": losses.get("boats_and_warships", 0),
-            "submarines": losses.get("submarines", 0),
-            "uav": losses.get("uav", 0),
-            "special_equipment": losses.get("special_equipment", 0),
-            "vehicles_and_fuel_tanks": losses.get("vehicles_and_fuel_tanks", 0),
-            "cruise_missiles": losses.get("cruise_missiles", 0),
+            "date": pd.to_datetime(norm, format="%Y-%m-%d"),
+            "personnel": day.get("personnel", 0),
+            "uav": day.get("uav", 0),
+            "air_defense_systems": day.get("aaws", 0),
         })
     df = pd.DataFrame(rows)
     df = df.sort_values("date").reset_index(drop=True)
@@ -72,11 +59,8 @@ def plot_histograms(df: pd.DataFrame) -> None:
 
     metrics = [
         ("personnel", "Personnel"),
-        ("tanks", "Tanks"),
-        ("apv", "Armored Personnel Vehicles"),
-        ("artillery_units", "Artillery Units"),
         ("uav", "UAVs"),
-        ("vehicles_and_fuel_tanks", "Vehicles & Fuel Tanks"),
+        ("air_defense_systems", "Air Defense Systems"),
     ]
 
     for col, label in metrics:
@@ -94,13 +78,15 @@ def plot_histograms(df: pd.DataFrame) -> None:
 
 
 def main() -> None:
-    print("Fetching Ukrainian MoD losses data...")
+    print("Fetching loss data...")
     raw = fetch_raw_data()
-    print(f"Fetched {len(raw)} daily records")
+    n_days = len(raw.get("data", {}))
+    print(f"Fetched {n_days} daily records")
 
     print("Parsing and filtering from Feb 2022...")
     df = parse_to_dataframe(raw)
     print(f"DataFrame shape: {df.shape}")
+    print(f"Columns {df.info()}")
     print(df.head(10).to_string())
 
     print("\nPlotting histograms...")
