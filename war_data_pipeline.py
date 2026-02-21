@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 
 LOSSES_DATA_URL = "https://russian-casualties.in.ua/api/v1/data/json/daily"
-FIGURES_DIR = Path(__file__).parent / "output/images/mod_analysis"
+FIGURES_DIR = Path(__file__).parent / "output/images/loses_analysis"
 
 
 def fetch_raw_data() -> dict:
@@ -85,11 +85,10 @@ def main() -> None:
 
     print("Parsing and filtering from Feb 2022...")
     df = parse_to_dataframe(raw)
-    print(f"DataFrame shape: {df.shape}")
-    print(f"Columns {df.info()}")
+    print(f"Losses DataFrame shape: {df.shape}")
     print(df.head(10).to_string())
 
-    print("\nPlotting histograms...")
+    print("\nPlotting loss histograms...")
     plot_histograms(df)
     print("Done.")
 
