@@ -2,12 +2,35 @@
 Economics Data Pipeline
 Fetches Russian economics from World Bank WDI (GDP, inflation, trade, debt),
 builds a DataFrame, and plots histograms.
+
+Central government debt as % of GDP
+How to read it
+- Low (e.g. &lt; 30%): Debt is modest relative to the economy; fiscal space is typically larger.
+- Moderate (e.g. 30–60%): Common for many countries; sustainability depends on growth and interest rates.
+- High (e.g. &gt; 60–100%+): Debt burden is heavy; more sensitivity to interest rates and investor confidence
+
+GDP growth (annual %)
+How to read it
+- Positive (e.g. +4%): Economy is expanding; output and usually employment are rising.
+- Negative (e.g. −1.5%): Economy is shrinking; recession.
+- Zero: Roughly flat compared to the previous year.
+
+Consumer price inflation (annual %)
+A Consumer Price Index (CPI) – the cost of a typical basket of goods and services (food, housing, transport, etc.).
+How to read it
+- Low (e.g. 0–3%): Prices fairly stable; common target for many central banks.
+- Moderate (e.g. 3–8%): Noticeable but often manageable; can reflect strong demand or supply shocks.
+- High (e.g. 10%+): Erodes living standards and savings; often needs policy action.
+
+Exports of goods and services as % of GDP
+How to read it
+- Low (e.g. &lt; 20%): Economy is more domestic‑oriented.
+- Medium (e.g. 20–40%): Moderate openness to trade; exports are a noticeable share of the economy.
+- High (e.g. &gt; 40%): Economy is very export‑dependent.
+
 Data source: World Bank WDI API (annual). Data is expanded to quarters for display.
 """
 
-from pathlib import Path
-
-import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 
@@ -15,6 +38,8 @@ WORLD_BANK_BASE = "https://api.worldbank.org/v2"
 WB_COUNTRY = "RUS"
 WB_DATE_RANGE = "2022:2030"
 # WDI indicator codes: GDP growth %, Inflation (CPI) %, Exports % GDP, Central govt debt % GDP
+
+
 WB_INDICATORS = [
     "NY.GDP.MKTP.KD.ZG",   # GDP growth (annual %)
     "FP.CPI.TOTL.ZG",      # Inflation, consumer prices (annual %)
@@ -27,7 +52,6 @@ WB_INDICATOR_LABELS = {
     "NE.EXP.GNFS.ZS": "trade_pct_gdp",
     "GC.DOD.TOTL.GD.ZS": "debt_pct_gdp",
 }
-FIGURES_DIR = Path(__file__).parent / "output/images/economic_analysis"
 
 # Display frequency: "quarterly" expands annual values to Q1–Q4 per year; "annual" keeps one bar per year.
 FREQUENCY = "quarterly"
@@ -102,39 +126,6 @@ def annual_to_quarterly(df_annual: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def plot_economics_histograms(df: pd.DataFrame, period_col: str = "year") -> None:
-    """Plot economics metrics (bar charts) by year or by quarter. period_col is 'year' or 'period'."""
-    if df.empty or period_col not in df.columns:
-        print("No economics data to plot.")
-        return
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    metrics = [
-        ("gdp_growth", "GDP growth (annual %)"),
-        ("inflation", "Inflation, consumer prices (annual %)"),
-        ("trade_pct_gdp", "Exports (% of GDP)"),
-        ("debt_pct_gdp", "Central government debt (% of GDP)"),
-    ]
-    x_label = "Quarter" if period_col == "period" else "Year"
-    for col, label in metrics:
-        if col not in df.columns:
-            continue
-        plot_df = df[[period_col, col]].dropna(subset=[col])
-        if plot_df.empty:
-            continue
-        fig, ax = plt.subplots(figsize=(12, 5))
-        ax.bar(range(len(plot_df)), plot_df[col], width=0.7, edgecolor="black", alpha=0.8)
-        ax.set_xticks(range(len(plot_df)))
-        ax.set_xticklabels(plot_df[period_col].astype(str), rotation=45, ha="right")
-        ax.set_xlabel(x_label)
-        ax.set_ylabel(label)
-        ax.set_title(f"Russia – {label}" + (" (annual value by quarter)" if period_col == "period" else ""))
-        plt.tight_layout()
-        out_path = FIGURES_DIR / f"hist_econ_{col}.png"
-        plt.savefig(out_path, dpi=100)
-        plt.close()
-        print(f"Saved: {out_path}")
-
-
 def main() -> None:
     print("Fetching World Bank economics (Russia)...")
     wb_records = fetch_wb_economics()
@@ -147,16 +138,9 @@ def main() -> None:
 
     if FREQUENCY == "quarterly":
         print("\nExpanding to quarterly (same annual value per quarter)...")
-        df_plot = annual_to_quarterly(df_annual)
-        period_col = "period"
-        print(f"Economics DataFrame (quarterly) shape: {df_plot.shape}")
-        print(df_plot.to_string())
-    else:
-        df_plot = df_annual
-        period_col = "year"
-
-    print("\nPlotting economics histograms...")
-    plot_economics_histograms(df_plot, period_col=period_col)
+        df_quarterly = annual_to_quarterly(df_annual)
+        print(f"Economics DataFrame (quarterly) shape: {df_quarterly.shape}")
+        print(df_quarterly.to_string())
     print("Done.")
 
 

@@ -15,7 +15,7 @@ from economics_data_pipeline import (
     fetch_wb_economics,
     parse_wb_to_dataframe,
 )
-from war_data_pipeline import fetch_raw_data, parse_to_dataframe
+from loses_data_pipeline import fetch_raw_data, parse_to_dataframe
 
 
 def get_losses_grouped_monthly() -> pd.DataFrame:

@@ -1,17 +1,13 @@
 """
 WarDashboard Data Pipeline
-Fetches Russian losses data, builds a pandas DataFrame, and plots histograms.
+Fetches Russian losses data and builds a pandas DataFrame.
 Data source: LOSSES_DATA_URL (russian-casualties.in.ua daily API).
 """
 
-from pathlib import Path
-
-import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 
 LOSSES_DATA_URL = "https://russian-casualties.in.ua/api/v1/data/json/daily"
-FIGURES_DIR = Path(__file__).parent / "output/images/loses_analysis"
 
 
 def fetch_raw_data() -> dict:
@@ -44,39 +40,6 @@ def parse_to_dataframe(raw: dict) -> pd.DataFrame:
     return df
 
 
-def _monthly_totals(df: pd.DataFrame) -> pd.DataFrame:
-    """Group daily data by month and sum losses."""
-    df = df.copy()
-    df["month"] = df["date"].dt.to_period("M").dt.to_timestamp()
-    loss_cols = [c for c in df.columns if c not in ("date", "month")]
-    return df.groupby("month", as_index=False)[loss_cols].sum()
-
-
-def plot_histograms(df: pd.DataFrame) -> None:
-    """Plot losses by month (bar charts) for key metrics and save to figures/."""
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    monthly = _monthly_totals(df)
-
-    metrics = [
-        ("personnel", "Personnel"),
-        ("uav", "UAVs"),
-        ("air_defense_systems", "Air Defense Systems"),
-    ]
-
-    for col, label in metrics:
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.bar(monthly["month"], monthly[col], width=20, edgecolor="black", alpha=0.8)
-        ax.set_xlabel("Month")
-        ax.set_ylabel(f"{label} (total losses)")
-        ax.set_title(f"{label} losses by month")
-        plt.xticks(rotation=45, ha="right")
-        plt.tight_layout()
-        out_path = FIGURES_DIR / f"hist_{col}.png"
-        plt.savefig(out_path, dpi=100)
-        plt.close()
-        print(f"Saved: {out_path}")
-
-
 def main() -> None:
     print("Fetching loss data...")
     raw = fetch_raw_data()
@@ -87,9 +50,6 @@ def main() -> None:
     df = parse_to_dataframe(raw)
     print(f"Losses DataFrame shape: {df.shape}")
     print(df.head(10).to_string())
-
-    print("\nPlotting loss histograms...")
-    plot_histograms(df)
     print("Done.")
 
 
