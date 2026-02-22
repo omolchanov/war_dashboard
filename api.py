@@ -12,26 +12,32 @@ from fastapi.responses import JSONResponse
 
 from economics_data_pipeline import (
     annual_to_quarterly,
-    fetch_wb_economics,
-    parse_wb_to_dataframe,
+    build_annual_economics,
+    YEAR_MAX,
+    YEAR_MIN,
 )
 from loses_data_pipeline import fetch_raw_data, parse_to_dataframe
 
 
 def get_losses_grouped_monthly() -> pd.DataFrame:
-    """Fetch losses, parse, and group by month (sum of personnel, uav, air_defense_systems)."""
+    """Fetch losses, parse, and group by month (sum of personnel, uav, air_defense_systems). Keeps 2022–2025 only."""
     raw = fetch_raw_data()
     df = parse_to_dataframe(raw)
     df = df.copy()
     df["month"] = df["date"].dt.to_period("M").dt.to_timestamp()
     loss_cols = [c for c in df.columns if c not in ("date", "month")]
-    return df.groupby("month", as_index=False)[loss_cols].sum()
+    grouped = df.groupby("month", as_index=False)[loss_cols].sum()
+    # Restrict to YEAR_MIN–YEAR_MAX (2022–2025)
+    grouped = grouped[
+        (grouped["month"].dt.year >= YEAR_MIN)
+        & (grouped["month"].dt.year <= YEAR_MAX)
+    ].reset_index(drop=True)
+    return grouped
 
 
 def get_economics_grouped_quarterly() -> pd.DataFrame:
-    """Fetch economics, parse annual, expand to quarterly (one row per quarter)."""
-    records = fetch_wb_economics()
-    df_annual = parse_wb_to_dataframe(records)
+    """Fetch economics (IMF WEO + WB), 2022–2025, expand to quarterly (one row per quarter)."""
+    df_annual = build_annual_economics()
     return annual_to_quarterly(df_annual)
 
 
@@ -68,7 +74,7 @@ app = FastAPI(
 def losses_grouped():
     """
     Returns losses data grouped by month: sum of personnel, uav, air_defense_systems per month.
-    From Feb 2022 onward (russian-casualties.in.ua).
+    Historical 2022–2025 only (russian-casualties.in.ua).
     """
     df = get_losses_grouped_monthly()
     return JSONResponse(content=_dataframe_to_records(df))
@@ -77,8 +83,8 @@ def losses_grouped():
 @app.get("/economics", response_class=JSONResponse)
 def economics_grouped():
     """
-    Returns economics data by quarter: year, period (e.g. 2022-Q1), gdp_growth, inflation,
-    trade_pct_gdp, debt_pct_gdp. World Bank WDI, Russia; annual values repeated per quarter.
+    Returns economics data by quarter: year, period (first day of quarter, YYYY-MM-DD, same format as losses month),
+    gdp_growth, inflation, trade_pct_gdp, debt_pct_gdp. IMF WEO + World Bank, Russia; historical 2022–2025 only.
     """
     df = get_economics_grouped_quarterly()
     return JSONResponse(content=_dataframe_to_records(df))
