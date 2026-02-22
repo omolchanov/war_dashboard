@@ -52,7 +52,9 @@ def losses_grouped():
 def economics_grouped():
     """
     Returns economics data by quarter: year, period (first day of quarter, YYYY-MM-DD),
-    gdp_growth, inflation, trade_pct_gdp, debt_pct_gdp. IMF WEO + World Bank, Russia; 2022–2025.
+    gdp_growth, inflation, trade_pct_gdp, debt_pct_gdp, balance_of_trade (current US$),
+    budget_balance_pct_gdp (surplus/deficit % GDP; negative = deficit), urals_oil_price (quarterly avg, $/bbl).
+    IMF WEO + World Bank + IMF PCPS (oil), Russia; 2022–2025.
     """
     df = get_economics_grouped_quarterly()
     return JSONResponse(content=dataframe_to_records(df))
@@ -65,6 +67,6 @@ def root():
         "name": "WarDashboard API",
         "endpoints": {
             "losses": "/losses  — monthly grouped losses (personnel, uav, air_defense_systems)",
-            "economics": "/economics — quarterly grouped economics (gdp_growth, inflation, etc.)",
+            "economics": "/economics — quarterly grouped economics (gdp_growth, inflation, balance_of_trade, budget_balance_pct_gdp, urals_oil_price, etc.)",
         },
     }

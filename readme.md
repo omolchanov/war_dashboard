@@ -1,5 +1,17 @@
 # WarDashboard API – How to fetch endpoints
 
+## Data sources (economics)
+
+| Metric | Source | Aggregation |
+|--------|--------|-------------|
+| GDP growth, inflation, debt % GDP | IMF World Economic Outlook (WEO) | Annual → repeated per quarter |
+| Trade % GDP | World Bank WDI (NE.EXP.GNFS.ZS) | Annual → repeated per quarter |
+| **Urals oil price** | IMF Primary Commodity Prices (PCPS) via [DBnomics](https://db.nomics.world/IMF/PCPS) — *Brent crude* $/bbl (Urals not in PCPS) | Monthly → **quarterly average** |
+| **Balance of trade** | World Bank WDI: exports (NE.EXP.GNFS.CD) − imports (NE.IMP.GNFS.CD), current US$ | Annual → repeated per quarter |
+| **Budget surplus/deficit** | IMF WEO: GGXCNL_NGDP — General government net lending/borrowing (% of GDP); negative = deficit | Annual → repeated per quarter |
+
+---
+
 ## Project structure
 
 ```
@@ -36,7 +48,7 @@ Base URL: **http://localhost:8000**
 |-----------|-------------------------|-------------|
 | **Root**  | http://localhost:8000/  | API info and list of endpoints |
 | **Losses**| http://localhost:8000/losses   | Monthly grouped losses (personnel, uav, air_defense_systems) |
-| **Economics** | http://localhost:8000/economics | Quarterly grouped economics (gdp_growth, inflation, trade_pct_gdp, debt_pct_gdp) |
+| **Economics** | http://localhost:8000/economics | Quarterly grouped economics (gdp_growth, inflation, trade_pct_gdp, debt_pct_gdp, balance_of_trade, budget_balance_pct_gdp, urals_oil_price) |
 
 ---
 
@@ -70,4 +82,4 @@ economics = r.json()
 ## Response format
 
 - **`/losses`** — JSON array of objects: `month` (YYYY-MM-DD, first day of month), `personnel`, `uav`, `air_defense_systems` (monthly totals from Feb 2022).
-- **`/economics`** — JSON array of objects: `period` (first day of quarter, YYYY-MM-DD), `year`, `gdp_growth`, `inflation`, `trade_pct_gdp`, `debt_pct_gdp` (IMF WEO + World Bank, Russia; annual values repeated per quarter).
+- **`/economics`** — JSON array of objects: `period`, `year`, `gdp_growth`, `inflation`, `trade_pct_gdp`, `debt_pct_gdp`, `balance_of_trade`, `budget_balance_pct_gdp` (surplus/deficit % GDP; negative = deficit), `urals_oil_price`. Sources: IMF WEO + World Bank (Russia); oil from IMF PCPS via DBnomics (Brent $/bbl, quarterly avg); balance of trade = exports − imports (current US$); budget = IMF WEO net lending/borrowing (% of GDP).

@@ -48,6 +48,9 @@ def sample_economics_df():
             "inflation": [20.0, 20.0],
             "debt_pct_gdp": [18.5, 18.5],
             "trade_pct_gdp": [35.2, 35.2],
+            "balance_of_trade": [2.0e11, 2.0e11],
+            "budget_balance_pct_gdp": [-2.5, -2.5],
+            "urals_oil_price": [85.0, 95.0],
         }
     )
 
@@ -134,7 +137,7 @@ def test_economics_records_have_expected_keys(client, sample_economics_df):
     with patch.object(app_module, "get_economics_grouped_quarterly", return_value=sample_economics_df):
         response = client.get("/economics")
     data = response.json()
-    expected_keys = {"period", "year", "gdp_growth", "inflation", "debt_pct_gdp", "trade_pct_gdp"}
+    expected_keys = {"period", "year", "gdp_growth", "inflation", "debt_pct_gdp", "trade_pct_gdp", "balance_of_trade", "budget_balance_pct_gdp", "urals_oil_price"}
     for record in data:
         assert set(record.keys()) == expected_keys
 
@@ -157,6 +160,9 @@ def test_economics_nan_becomes_null(client):
             "inflation": [5.0],
             "debt_pct_gdp": [20.0],
             "trade_pct_gdp": [float("nan")],
+            "balance_of_trade": [1.0e11],
+            "budget_balance_pct_gdp": [-1.5],
+            "urals_oil_price": [80.0],
         }
     )
     with patch.object(app_module, "get_economics_grouped_quarterly", return_value=df):
@@ -179,7 +185,7 @@ def test_losses_empty_list_when_no_data(client):
 
 def test_economics_empty_list_when_no_data(client):
     empty_df = pd.DataFrame(
-        columns=["period", "year", "gdp_growth", "inflation", "debt_pct_gdp", "trade_pct_gdp"]
+        columns=["period", "year", "gdp_growth", "inflation", "debt_pct_gdp", "trade_pct_gdp", "balance_of_trade", "budget_balance_pct_gdp", "urals_oil_price"]
     )
     with patch.object(app_module, "get_economics_grouped_quarterly", return_value=empty_df):
         response = client.get("/economics")
