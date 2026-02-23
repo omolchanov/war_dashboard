@@ -70,8 +70,10 @@ def test_root_returns_api_info(client):
     assert "endpoints" in data
     assert "losses" in data["endpoints"]
     assert "economics" in data["endpoints"]
+    assert "recruiting" in data["endpoints"]
     assert "/losses" in data["endpoints"]["losses"]
     assert "/economics" in data["endpoints"]["economics"]
+    assert "/recruiting" in data["endpoints"]["recruiting"]
 
 
 # --- /losses ---
@@ -150,6 +152,74 @@ def test_economics_dates_are_iso_format(client, sample_economics_df):
     assert data[1]["period"] == "2022-04-01"
 
 
+# --- /recruiting ---
+
+
+@pytest.fixture
+def sample_recruiting_df():
+    """Minimal quarterly recruiting DataFrame as returned by get_recruiting()."""
+    return pd.DataFrame(
+        {
+            "period": pd.to_datetime(["2023-01-01", "2023-04-01"]),
+            "year": [2023, 2023],
+            "quarter": [1, 2],
+            "contracts_signed_avg_per_quarter": [96750.0, 96750.0],
+            "contracts_min_avg_per_quarter": [83750.0, 83750.0],
+            "contracts_max_avg_per_quarter": [122500.0, 122500.0],
+            "source": ["Independent estimate ~387k", "Independent estimate ~387k"],
+        }
+    )
+
+
+def test_recruiting_returns_200(client, sample_recruiting_df):
+    with patch.object(app_module, "get_recruiting", return_value=sample_recruiting_df):
+        response = client.get("/recruiting")
+    assert response.status_code == 200
+
+
+def test_recruiting_returns_json_list(client, sample_recruiting_df):
+    with patch.object(app_module, "get_recruiting", return_value=sample_recruiting_df):
+        response = client.get("/recruiting")
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 2
+
+
+def test_recruiting_records_have_expected_keys(client, sample_recruiting_df):
+    with patch.object(app_module, "get_recruiting", return_value=sample_recruiting_df):
+        response = client.get("/recruiting")
+    data = response.json()
+    expected_keys = {
+        "period", "year", "quarter",
+        "contracts_signed_avg_per_quarter", "contracts_min_avg_per_quarter", "contracts_max_avg_per_quarter",
+        "source",
+    }
+    for record in data:
+        assert set(record.keys()) == expected_keys
+
+
+def test_recruiting_nan_becomes_null(client):
+    """Recruiting data may have NaN; API must serialize as null."""
+    df = pd.DataFrame(
+        {
+            "period": pd.to_datetime(["2022-01-01"]),
+            "year": [2022],
+            "quarter": [1],
+            "contracts_signed_avg_per_quarter": [float("nan")],
+            "contracts_min_avg_per_quarter": [float("nan")],
+            "contracts_max_avg_per_quarter": [float("nan")],
+            "source": ["No data for 2022"],
+        }
+    )
+    with patch.object(app_module, "get_recruiting", return_value=df):
+        response = client.get("/recruiting")
+    assert response.status_code == 200
+    data = response.json()
+    assert data[0]["contracts_signed_avg_per_quarter"] is None
+    assert data[0]["contracts_min_avg_per_quarter"] is None
+    assert data[0]["contracts_max_avg_per_quarter"] is None
+
+
 def test_economics_nan_becomes_null(client):
     """Economics data may contain NaN (e.g. missing trade_pct_gdp); API must serialize as null."""
     df = pd.DataFrame(
@@ -189,6 +259,18 @@ def test_economics_empty_list_when_no_data(client):
     )
     with patch.object(app_module, "get_economics_grouped_quarterly", return_value=empty_df):
         response = client.get("/economics")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_recruiting_empty_list_when_no_data(client):
+    empty_df = pd.DataFrame(columns=[
+        "period", "year", "quarter",
+        "contracts_signed_avg_per_quarter", "contracts_min_avg_per_quarter", "contracts_max_avg_per_quarter",
+        "source",
+    ])
+    with patch.object(app_module, "get_recruiting", return_value=empty_df):
+        response = client.get("/recruiting")
     assert response.status_code == 200
     assert response.json() == []
 
