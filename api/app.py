@@ -1,5 +1,5 @@
 """
-WarDashboard API: FastAPI app exposing losses (monthly) and economics (quarterly) as JSON.
+WarDashboard API: FastAPI app exposing losses (quarterly), economics (quarterly), and recruiting (quarterly) as JSON.
 """
 
 from contextlib import asynccontextmanager
@@ -16,9 +16,9 @@ _economics_pipeline = EconomicsPipeline()
 _recruiting_pipeline = RecruitingPipeline()
 
 
-def get_losses_grouped_monthly():
-    """Fetch losses, parse, and group by month. Used by /losses and tests."""
-    return _losses_pipeline.get_grouped_monthly()
+def get_losses_grouped_quarterly():
+    """Fetch losses, parse, and group by quarter. Used by /losses and tests."""
+    return _losses_pipeline.get_grouped_quarterly()
 
 
 def get_economics_grouped_quarterly():
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="WarDashboard API",
-    description="Grouped losses (monthly) and economics (quarterly) data.",
+    description="Grouped losses (quarterly), economics (quarterly), and recruiting (quarterly) data.",
     lifespan=lifespan,
 )
 
@@ -47,10 +47,10 @@ app = FastAPI(
 @app.get("/losses", response_class=JSONResponse)
 def losses_grouped():
     """
-    Returns losses data grouped by month: sum of personnel, uav, air_defense_systems per month.
-    Historical 2022–2025 only (russian-casualties.in.ua).
+    Returns losses data grouped by quarter: period (first day of quarter), year, quarter,
+    sum of personnel, uav, air_defense_systems per quarter. Historical 2022–2025 only (russian-casualties.in.ua).
     """
-    df = get_losses_grouped_monthly()
+    df = get_losses_grouped_quarterly()
     return JSONResponse(content=dataframe_to_records(df))
 
 
@@ -83,7 +83,7 @@ def root():
     return {
         "name": "WarDashboard API",
         "endpoints": {
-            "losses": "/losses  — monthly grouped losses (personnel, uav, air_defense_systems)",
+            "losses": "/losses  — quarterly grouped losses (period, year, quarter, personnel, uav, air_defense_systems)",
             "economics": "/economics — quarterly grouped economics (gdp_growth, inflation, balance_of_trade, budget_balance_pct_gdp, urals_oil_price, etc.)",
             "recruiting": "/recruiting — quarterly recruiting (quarterly average from curated annual data)",
         },

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from api import app
 
-# Module where get_losses_grouped_monthly / get_economics_grouped_quarterly live (for patching)
+# Module where get_losses_grouped_quarterly / get_economics_grouped_quarterly live (for patching)
 app_module = importlib.import_module("api.app")
 
 
@@ -26,10 +26,12 @@ def client():
 
 @pytest.fixture
 def sample_losses_df():
-    """Minimal monthly losses DataFrame as returned by get_losses_grouped_monthly()."""
+    """Minimal quarterly losses DataFrame as returned by get_losses_grouped_quarterly()."""
     return pd.DataFrame(
         {
-            "month": pd.to_datetime(["2022-03-01", "2022-04-01"]),
+            "period": pd.to_datetime(["2022-01-01", "2022-04-01"]),
+            "year": [2022, 2022],
+            "quarter": [1, 2],
             "personnel": [100, 200],
             "uav": [5, 10],
             "air_defense_systems": [1, 2],
@@ -80,13 +82,13 @@ def test_root_returns_api_info(client):
 
 
 def test_losses_returns_200(client, sample_losses_df):
-    with patch.object(app_module, "get_losses_grouped_monthly", return_value=sample_losses_df):
+    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=sample_losses_df):
         response = client.get("/losses")
     assert response.status_code == 200
 
 
 def test_losses_returns_json_list(client, sample_losses_df):
-    with patch.object(app_module, "get_losses_grouped_monthly", return_value=sample_losses_df):
+    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=sample_losses_df):
         response = client.get("/losses")
     data = response.json()
     assert isinstance(data, list)
@@ -94,24 +96,24 @@ def test_losses_returns_json_list(client, sample_losses_df):
 
 
 def test_losses_records_have_expected_keys(client, sample_losses_df):
-    with patch.object(app_module, "get_losses_grouped_monthly", return_value=sample_losses_df):
+    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=sample_losses_df):
         response = client.get("/losses")
     data = response.json()
-    expected_keys = {"month", "personnel", "uav", "air_defense_systems"}
+    expected_keys = {"period", "year", "quarter", "personnel", "uav", "air_defense_systems"}
     for record in data:
         assert set(record.keys()) == expected_keys
 
 
 def test_losses_dates_are_iso_format(client, sample_losses_df):
-    with patch.object(app_module, "get_losses_grouped_monthly", return_value=sample_losses_df):
+    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=sample_losses_df):
         response = client.get("/losses")
     data = response.json()
-    assert data[0]["month"] == "2022-03-01"
-    assert data[1]["month"] == "2022-04-01"
+    assert data[0]["period"] == "2022-01-01"
+    assert data[1]["period"] == "2022-04-01"
 
 
 def test_losses_values_match_mock(client, sample_losses_df):
-    with patch.object(app_module, "get_losses_grouped_monthly", return_value=sample_losses_df):
+    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=sample_losses_df):
         response = client.get("/losses")
     data = response.json()
     assert data[0]["personnel"] == 100 and data[0]["uav"] == 5 and data[0]["air_defense_systems"] == 1
@@ -246,8 +248,8 @@ def test_economics_nan_becomes_null(client):
 
 
 def test_losses_empty_list_when_no_data(client):
-    empty_df = pd.DataFrame(columns=["month", "personnel", "uav", "air_defense_systems"])
-    with patch.object(app_module, "get_losses_grouped_monthly", return_value=empty_df):
+    empty_df = pd.DataFrame(columns=["period", "year", "quarter", "personnel", "uav", "air_defense_systems"])
+    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=empty_df):
         response = client.get("/losses")
     assert response.status_code == 200
     assert response.json() == []

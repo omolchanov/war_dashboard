@@ -1,6 +1,6 @@
 """
 Losses data pipeline.
-Fetches Russian losses from russian-casualties.in.ua and groups by month.
+Fetches Russian losses from russian-casualties.in.ua and groups by quarter (same as economics/recruiting).
 """
 
 import pandas as pd
@@ -10,7 +10,7 @@ from config import YEAR_MAX, YEAR_MIN
 
 
 class LossesPipeline:
-    """Fetch and aggregate losses data by month (2022–2025)."""
+    """Fetch and aggregate losses data by quarter (2022–2025)."""
 
     LOSSES_DATA_URL = "https://russian-casualties.in.ua/api/v1/data/json/daily"
 
@@ -44,17 +44,20 @@ class LossesPipeline:
         df = df.sort_values("date").reset_index(drop=True)
         return df
 
-    def get_grouped_monthly(self) -> pd.DataFrame:
-        """Fetch, parse, and group by month. Restrict to year_min–year_max."""
+    def get_grouped_quarterly(self) -> pd.DataFrame:
+        """Fetch, parse, and group by quarter. One row per quarter: period (first day), year, quarter, loss sums.
+        Restrict to year_min–year_max. Same structure as economics/recruiting."""
         raw = self.fetch_raw()
         df = self.parse_to_dataframe(raw)
         df = df.copy()
-        df["month"] = df["date"].dt.to_period("M").dt.to_timestamp()
-        loss_cols = [c for c in df.columns if c not in ("date", "month")]
-        grouped = df.groupby("month", as_index=False)[loss_cols].sum()
+        df["quarter"] = df["date"].dt.quarter
+        df["year"] = df["date"].dt.year
+        df["period"] = df["date"].dt.to_period("Q").dt.to_timestamp()
+        loss_cols = [c for c in df.columns if c not in ("date", "period", "year", "quarter")]
+        grouped = df.groupby(["period", "year", "quarter"], as_index=False)[loss_cols].sum()
         grouped = grouped[
-            (grouped["month"].dt.year >= self.year_min)
-            & (grouped["month"].dt.year <= self.year_max)
+            (grouped["year"] >= self.year_min)
+            & (grouped["year"] <= self.year_max)
         ].reset_index(drop=True)
         return grouped
 
@@ -65,6 +68,8 @@ if __name__ == "__main__":
     raw = pipeline.fetch_raw()
     print(f"Fetched {len(raw.get('data', {}))} daily records")
     df = pipeline.parse_to_dataframe(raw)
-    print(f"Losses DataFrame shape: {df.shape}")
-    print(df.head(10).to_string())
+    print(f"Losses parsed shape: {df.shape}")
+    q = pipeline.get_grouped_quarterly()
+    print(f"Losses quarterly shape: {q.shape}")
+    print(q.to_string())
     print("Done.")
