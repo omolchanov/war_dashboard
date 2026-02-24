@@ -1,4 +1,6 @@
-# WarDashboard API – How to fetch endpoints
+# WarDashboard
+
+API, pipelines, analysis, and prediction for war-related data (losses, economics, recruiting). Predicts when the war could end (quarter level) using time series models.
 
 ## Data sources
 
@@ -16,7 +18,7 @@
 
 | Metric | Source | Aggregation |
 |--------|--------|-------------|
-| Personnel, UAV, air defense systems | [russian-casualties.in.ua](https://russian-casualties.in.ua) API | Daily → **monthly sum** |
+| Personnel, UAV, air defense systems | [russian-casualties.in.ua](https://russian-casualties.in.ua) API | Daily → **quarterly sum** |
 
 ### Recruiting (Russia army contract recruitment)
 
@@ -35,40 +37,59 @@ WarDashboard/
   config.py                 # YEAR_MIN, YEAR_MAX (shared)
   data/
     russia_recruiting.csv   # Curated Russia contract recruitment estimates (annual)
-  utils/                    # Helpers
+  utils/
     __init__.py
     serialization.py        # DataFrame → JSON records (ISO dates, NaN→null)
-  api/                      # API package
+  api/
     __init__.py
-    app.py                  # FastAPI app and routes
-  pipelines/                # Pipelines package (one file per pipeline)
+    app.py                  # FastAPI app and routes (losses, economics, recruiting, prediction)
+  pipelines/
     __init__.py
-    losses.py               # LossesPipeline
-    economics.py            # EconomicsPipeline
+    losses.py               # LossesPipeline (quarterly)
+    economics.py            # EconomicsPipeline (quarterly)
     recruiting.py           # RecruitingPipeline (annual → quarterly average)
+  analysis/
+    run_analysis.py         # Correlation: top-5 feature pairs (quarterly merged data)
+    README.md
+  prediction/
+    run_prediction.py       # War-end quarter prediction (Expo, SARIMAX, Ridge; uses losses + recruiting)
+    README.md
   tests/
     test_api.py
 ```
 
 ## Run the server
 
+From project root:
+
 ```bash
 pip install -r requirements.txt
-uvicorn api:app --reload --host 0.0.0.0 --port 8000
+uvicorn api.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Base URL: **http://localhost:8000**
+
+**Run analysis (correlation):**
+```bash
+python -m analysis.run_analysis
+```
+
+**Run prediction (war-end quarter, prints explanations):**
+```bash
+python -m prediction.run_prediction
+```
 
 ---
 
 ## Endpoints
 
-| Endpoint   | URL                     | Description |
-|-----------|-------------------------|-------------|
-| **Root**  | http://localhost:8000/  | API info and list of endpoints |
-| **Losses**| http://localhost:8000/losses   | Monthly grouped losses (personnel, uav, air_defense_systems) |
-| **Economics** | http://localhost:8000/economics | Quarterly grouped economics (gdp_growth, inflation, trade_pct_gdp, debt_pct_gdp, balance_of_trade, budget_balance_pct_gdp, urals_oil_price) |
-| **Recruiting** | http://localhost:8000/recruiting | Quarterly recruiting (quarterly average from curated annual data) |
+| Endpoint      | URL | Description |
+|---------------|-----|-------------|
+| **Root**      | http://localhost:8000/ | API info and list of endpoints |
+| **Losses**    | http://localhost:8000/losses | Quarterly grouped losses (period, year, quarter, personnel, uav, air_defense_systems) |
+| **Economics** | http://localhost:8000/economics | Quarterly economics (gdp_growth, inflation, trade_pct_gdp, debt_pct_gdp, balance_of_trade, budget_balance_pct_gdp, urals_oil_price) |
+| **Recruiting**| http://localhost:8000/recruiting | Quarterly recruiting (contracts_signed_avg_per_quarter, etc.; curated annual ÷ 4) |
+| **Prediction**| http://localhost:8000/prediction | Prediction results: list of `{ model, predicted_end_quarter }` (Exponential smoothing, SARIMAX, Ridge; uses losses + recruiting) |
 
 ---
 
@@ -81,6 +102,7 @@ Base URL: **http://localhost:8000**
 curl http://localhost:8000/losses
 curl http://localhost:8000/economics
 curl http://localhost:8000/recruiting
+curl http://localhost:8000/prediction
 ```
 
 **PowerShell:**
@@ -88,6 +110,7 @@ curl http://localhost:8000/recruiting
 Invoke-RestMethod -Uri "http://localhost:8000/losses"
 Invoke-RestMethod -Uri "http://localhost:8000/economics"
 Invoke-RestMethod -Uri "http://localhost:8000/recruiting"
+Invoke-RestMethod -Uri "http://localhost:8000/prediction"
 ```
 
 **Python:**
@@ -99,12 +122,15 @@ r = requests.get("http://localhost:8000/economics")
 economics = r.json()
 r = requests.get("http://localhost:8000/recruiting")
 recruiting = r.json()
+r = requests.get("http://localhost:8000/prediction")
+prediction = r.json()  # {"results": [{"model": "...", "predicted_end_quarter": "..."}, ...]}
 ```
 
 ---
 
 ## Response format
 
-- **`/losses`** — JSON array of objects: `month` (YYYY-MM-DD, first day of month), `personnel`, `uav`, `air_defense_systems` (monthly totals from Feb 2022).
-- **`/economics`** — JSON array of objects: `period`, `year`, `gdp_growth`, `inflation`, `trade_pct_gdp`, `debt_pct_gdp`, `balance_of_trade`, `budget_balance_pct_gdp` (surplus/deficit % GDP; negative = deficit), `urals_oil_price`. Sources: IMF WEO + World Bank (Russia); oil from IMF PCPS via DBnomics (Brent $/bbl, quarterly avg); balance of trade = exports − imports (current US$); budget = IMF WEO net lending/borrowing (% of GDP).
+- **`/losses`** — JSON array of objects: `period` (YYYY-MM-DD, first day of quarter), `year`, `quarter`, `personnel`, `uav`, `air_defense_systems` (quarterly sums from Feb 2022).
+- **`/economics`** — JSON array of objects: `period`, `year`, `gdp_growth`, `inflation`, `trade_pct_gdp`, `debt_pct_gdp`, `balance_of_trade`, `budget_balance_pct_gdp` (surplus/deficit % GDP; negative = deficit), `urals_oil_price`. Sources: IMF WEO + World Bank (Russia); oil from IMF PCPS via DBnomics (Brent $/bbl, quarterly avg).
 - **`/recruiting`** — JSON array of objects: `period` (YYYY-MM-DD, first day of quarter), `year`, `quarter`, `contracts_signed_avg_per_quarter`, `contracts_min_avg_per_quarter`, `contracts_max_avg_per_quarter`, `source`. Quarterly average = annual total ÷ 4 (curated data).
+- **`/prediction`** — JSON object: `results` (array of objects). Each object: `model` (string), `predicted_end_quarter` (string, e.g. `"2028Q3"` or `"— (not below threshold in 20q)"`). Models: Exponential smoothing, SARIMAX (losses + recruiting), Ridge recursive (losses + recruiting).

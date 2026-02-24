@@ -73,9 +73,11 @@ def test_root_returns_api_info(client):
     assert "losses" in data["endpoints"]
     assert "economics" in data["endpoints"]
     assert "recruiting" in data["endpoints"]
+    assert "prediction" in data["endpoints"]
     assert "/losses" in data["endpoints"]["losses"]
     assert "/economics" in data["endpoints"]["economics"]
     assert "/recruiting" in data["endpoints"]["recruiting"]
+    assert "/prediction" in data["endpoints"]["prediction"]
 
 
 # --- /losses ---
@@ -198,6 +200,59 @@ def test_recruiting_records_have_expected_keys(client, sample_recruiting_df):
     }
     for record in data:
         assert set(record.keys()) == expected_keys
+
+
+# --- /prediction ---
+
+
+@pytest.fixture
+def sample_prediction_results():
+    """Minimal prediction results as returned by get_prediction_results()."""
+    return [
+        {"model": "Exponential smoothing", "predicted_end_quarter": "2028Q3"},
+        {"model": "SARIMAX (losses + recruiting)", "predicted_end_quarter": "— (not below threshold in 20q)"},
+        {"model": "Ridge recursive (losses + recruiting)", "predicted_end_quarter": "— (not below threshold in 20q)"},
+    ]
+
+
+def test_prediction_returns_200(client, sample_prediction_results):
+    with patch.object(app_module, "get_prediction_results", return_value=sample_prediction_results):
+        response = client.get("/prediction")
+    assert response.status_code == 200
+
+
+def test_prediction_returns_results_key(client, sample_prediction_results):
+    with patch.object(app_module, "get_prediction_results", return_value=sample_prediction_results):
+        response = client.get("/prediction")
+    data = response.json()
+    assert "results" in data
+    assert isinstance(data["results"], list)
+
+
+def test_prediction_results_have_model_and_predicted_end_quarter(client, sample_prediction_results):
+    with patch.object(app_module, "get_prediction_results", return_value=sample_prediction_results):
+        response = client.get("/prediction")
+    data = response.json()
+    assert len(data["results"]) == 3
+    for record in data["results"]:
+        assert set(record.keys()) == {"model", "predicted_end_quarter"}
+        assert isinstance(record["model"], str)
+        assert isinstance(record["predicted_end_quarter"], str)
+
+
+def test_prediction_values_match_mock(client, sample_prediction_results):
+    with patch.object(app_module, "get_prediction_results", return_value=sample_prediction_results):
+        response = client.get("/prediction")
+    data = response.json()
+    assert data["results"] == sample_prediction_results
+
+
+def test_prediction_empty_results_when_get_prediction_returns_empty(client):
+    with patch.object(app_module, "get_prediction_results", return_value=[]):
+        response = client.get("/prediction")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["results"] == []
 
 
 def test_recruiting_nan_becomes_null(client):

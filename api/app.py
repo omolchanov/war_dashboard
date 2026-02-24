@@ -1,5 +1,5 @@
 """
-WarDashboard API: FastAPI app exposing losses (quarterly), economics (quarterly), and recruiting (quarterly) as JSON.
+WarDashboard API: FastAPI app exposing losses (quarterly), economics (quarterly), recruiting (quarterly), and prediction results as JSON.
 """
 
 from contextlib import asynccontextmanager
@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from pipelines import EconomicsPipeline, LossesPipeline, RecruitingPipeline
+from prediction.run_prediction import get_prediction_results
 from utils import dataframe_to_records
 
 # Pipeline instances used by route handlers (patchable in tests)
@@ -77,6 +78,16 @@ def recruiting():
     return JSONResponse(content=dataframe_to_records(df))
 
 
+@app.get("/prediction", response_class=JSONResponse)
+def prediction():
+    """
+    Returns prediction results: list of { model, predicted_end_quarter } for each model
+    (Exponential smoothing, SARIMAX, Ridge recursive). Uses losses and recruiting data.
+    """
+    results = get_prediction_results(verbose=False)
+    return JSONResponse(content={"results": results})
+
+
 @app.get("/")
 def root():
     """API info and links to endpoints."""
@@ -86,5 +97,6 @@ def root():
             "losses": "/losses  — quarterly grouped losses (period, year, quarter, personnel, uav, air_defense_systems)",
             "economics": "/economics — quarterly grouped economics (gdp_growth, inflation, balance_of_trade, budget_balance_pct_gdp, urals_oil_price, etc.)",
             "recruiting": "/recruiting — quarterly recruiting (quarterly average from curated annual data)",
+            "prediction": "/prediction — prediction results (model, predicted_end_quarter) for Expo, SARIMAX, Ridge",
         },
     }
