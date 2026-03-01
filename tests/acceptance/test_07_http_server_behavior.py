@@ -4,7 +4,6 @@ Content-Type, root structure, 404, startup.
 """
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from api import app

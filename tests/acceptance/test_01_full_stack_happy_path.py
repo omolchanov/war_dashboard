@@ -4,7 +4,6 @@ Uses real pipelines; hits external APIs. May be slow and requires network.
 """
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from api import app
@@ -60,8 +59,15 @@ def test_economics_returns_200_and_valid_json(client: TestClient):
     assert len(data) >= 1, "Expected at least one quarter of economics data"
     record = data[0]
     expected_keys = {
-        "period", "year", "gdp_growth", "inflation", "debt_pct_gdp",
-        "trade_pct_gdp", "balance_of_trade", "budget_balance_pct_gdp", "urals_oil_price",
+        "period",
+        "year",
+        "gdp_growth",
+        "inflation",
+        "debt_pct_gdp",
+        "trade_pct_gdp",
+        "balance_of_trade",
+        "budget_balance_pct_gdp",
+        "urals_oil_price",
     }
     assert expected_keys.issubset(set(record.keys()))
 
@@ -75,8 +81,12 @@ def test_recruiting_returns_200_and_valid_json(client: TestClient):
     if data:
         record = data[0]
         expected_keys = {
-            "period", "year", "quarter",
-            "contracts_signed_avg_per_quarter", "contracts_min_avg_per_quarter", "contracts_max_avg_per_quarter",
+            "period",
+            "year",
+            "quarter",
+            "contracts_signed_avg_per_quarter",
+            "contracts_min_avg_per_quarter",
+            "contracts_max_avg_per_quarter",
             "source",
         }
         assert expected_keys.issubset(set(record.keys()))

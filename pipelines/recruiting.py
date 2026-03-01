@@ -8,9 +8,10 @@ from pathlib import Path
 import pandas as pd
 
 from config import YEAR_MAX, YEAR_MIN
+from pipelines.base import QuarterlyPipeline
 
 
-class RecruitingPipeline:
+class RecruitingPipeline(QuarterlyPipeline):
     """Load and filter Russia contract recruitment estimates by year (2022–2025)."""
 
     # Curated CSV next to project root
@@ -24,16 +25,12 @@ class RecruitingPipeline:
     def load_recruiting(self) -> pd.DataFrame:
         """Load recruiting data from CSV and filter to year range."""
         if not self.RECRUITING_CSV.exists():
-            return pd.DataFrame(
-                columns=["year", "contracts_signed", "contracts_min", "contracts_max", "source"]
-            )
+            return pd.DataFrame(columns=["year", "contracts_signed", "contracts_min", "contracts_max", "source"])
         df = pd.read_csv(self.RECRUITING_CSV, dtype={"source": str})
         df["year"] = pd.to_numeric(df["year"], errors="coerce")
         df = df.dropna(subset=["year"])
         df["year"] = df["year"].astype(int)
-        df = df[
-            (df["year"] >= self.year_min) & (df["year"] <= self.year_max)
-        ].sort_values("year").reset_index(drop=True)
+        df = df[(df["year"] >= self.year_min) & (df["year"] <= self.year_max)].sort_values("year").reset_index(drop=True)
         return df
 
     def get_recruiting_annual(self) -> pd.DataFrame:
@@ -93,6 +90,10 @@ class RecruitingPipeline:
         """Return recruiting by quarter: quarterly average (annual total ÷ 4). Columns use _avg_per_quarter suffix."""
         df_annual = self.load_recruiting()
         return self._annual_to_quarterly(df_annual)
+
+    def get_quarterly(self, verbose: bool = False) -> pd.DataFrame:
+        """Implement QuarterlyPipeline. Returns same as get_recruiting_quarterly()."""
+        return self.get_recruiting_quarterly()
 
     def get_recruiting_monthly(self) -> pd.DataFrame:
         """Return recruiting by month (derived from annual: each year's total ÷ 12 per month)."""

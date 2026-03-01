@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
-
 from fastapi.testclient import TestClient
 
 from api import app
@@ -24,17 +23,19 @@ def client():
 
 def test_large_balance_of_trade_serializes_correctly(client):
     """Balance of trade in billions (1e11+) serializes without overflow."""
-    df = pd.DataFrame({
-        "period": pd.to_datetime(["2022-01-01"]),
-        "year": [2022],
-        "gdp_growth": [-2.0],
-        "inflation": [20.0],
-        "debt_pct_gdp": [18.5],
-        "trade_pct_gdp": [35.0],
-        "balance_of_trade": [2.5e11],
-        "budget_balance_pct_gdp": [-2.5],
-        "urals_oil_price": [85.0],
-    })
+    df = pd.DataFrame(
+        {
+            "period": pd.to_datetime(["2022-01-01"]),
+            "year": [2022],
+            "gdp_growth": [-2.0],
+            "inflation": [20.0],
+            "debt_pct_gdp": [18.5],
+            "trade_pct_gdp": [35.0],
+            "balance_of_trade": [2.5e11],
+            "budget_balance_pct_gdp": [-2.5],
+            "urals_oil_price": [85.0],
+        }
+    )
     with patch.object(app_module, "get_economics_grouped_quarterly", return_value=df):
         response = client.get("/economics")
     assert response.status_code == 200
@@ -45,14 +46,16 @@ def test_large_balance_of_trade_serializes_correctly(client):
 
 def test_nan_becomes_null_losses(client):
     """NaN in losses serializes as null."""
-    df = pd.DataFrame({
-        "period": pd.to_datetime(["2022-01-01"]),
-        "year": [2022],
-        "quarter": [1],
-        "personnel": [100],
-        "uav": [float("nan")],
-        "air_defense_systems": [1],
-    })
+    df = pd.DataFrame(
+        {
+            "period": pd.to_datetime(["2022-01-01"]),
+            "year": [2022],
+            "quarter": [1],
+            "personnel": [100],
+            "uav": [float("nan")],
+            "air_defense_systems": [1],
+        }
+    )
     with patch.object(app_module, "get_losses_grouped_quarterly", return_value=df):
         response = client.get("/losses")
     assert response.status_code == 200
@@ -62,17 +65,19 @@ def test_nan_becomes_null_losses(client):
 
 def test_nan_becomes_null_economics(client):
     """NaN in economics (e.g. missing trade_pct_gdp) serializes as null."""
-    df = pd.DataFrame({
-        "period": pd.to_datetime(["2022-01-01"]),
-        "year": [2022],
-        "gdp_growth": [1.0],
-        "inflation": [5.0],
-        "debt_pct_gdp": [20.0],
-        "trade_pct_gdp": [float("nan")],
-        "balance_of_trade": [1.0e11],
-        "budget_balance_pct_gdp": [-1.5],
-        "urals_oil_price": [80.0],
-    })
+    df = pd.DataFrame(
+        {
+            "period": pd.to_datetime(["2022-01-01"]),
+            "year": [2022],
+            "gdp_growth": [1.0],
+            "inflation": [5.0],
+            "debt_pct_gdp": [20.0],
+            "trade_pct_gdp": [float("nan")],
+            "balance_of_trade": [1.0e11],
+            "budget_balance_pct_gdp": [-1.5],
+            "urals_oil_price": [80.0],
+        }
+    )
     with patch.object(app_module, "get_economics_grouped_quarterly", return_value=df):
         response = client.get("/economics")
     assert response.status_code == 200
@@ -82,15 +87,17 @@ def test_nan_becomes_null_economics(client):
 
 def test_unicode_in_source_serializes(client):
     """Unicode in recruiting source string serializes correctly."""
-    df = pd.DataFrame({
-        "period": pd.to_datetime(["2022-01-01"]),
-        "year": [2022],
-        "quarter": [1],
-        "contracts_signed_avg_per_quarter": [96750.0],
-        "contracts_min_avg_per_quarter": [83750.0],
-        "contracts_max_avg_per_quarter": [122500.0],
-        "source": ["Незалежна оцінка ~387k · Історії"],
-    })
+    df = pd.DataFrame(
+        {
+            "period": pd.to_datetime(["2022-01-01"]),
+            "year": [2022],
+            "quarter": [1],
+            "contracts_signed_avg_per_quarter": [96750.0],
+            "contracts_min_avg_per_quarter": [83750.0],
+            "contracts_max_avg_per_quarter": [122500.0],
+            "source": ["Незалежна оцінка ~387k · Історії"],
+        }
+    )
     with patch.object(app_module, "get_recruiting", return_value=df):
         response = client.get("/recruiting")
     assert response.status_code == 200
@@ -101,14 +108,16 @@ def test_unicode_in_source_serializes(client):
 
 def test_date_format_iso_yyyy_mm_dd(client):
     """Period dates are ISO YYYY-MM-DD format."""
-    df = pd.DataFrame({
-        "period": pd.to_datetime(["2022-01-01", "2025-10-01"]),
-        "year": [2022, 2025],
-        "quarter": [1, 4],
-        "personnel": [100, 200],
-        "uav": [5, 10],
-        "air_defense_systems": [1, 2],
-    })
+    df = pd.DataFrame(
+        {
+            "period": pd.to_datetime(["2022-01-01", "2025-10-01"]),
+            "year": [2022, 2025],
+            "quarter": [1, 4],
+            "personnel": [100, 200],
+            "uav": [5, 10],
+            "air_defense_systems": [1, 2],
+        }
+    )
     with patch.object(app_module, "get_losses_grouped_quarterly", return_value=df):
         response = client.get("/losses")
     assert response.status_code == 200

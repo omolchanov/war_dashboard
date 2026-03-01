@@ -3,17 +3,12 @@ Acceptance test 5: Prediction pipeline end-to-end.
 Realistic merged data; models return expected structure.
 """
 
-import importlib
-from unittest.mock import patch
-
-import pandas as pd
 import pytest
-
 from fastapi.testclient import TestClient
 
 from api import app
+from api.app import get_prediction_data
 
-app_module = importlib.import_module("api.app")
 pytestmark = pytest.mark.acceptance
 
 
@@ -44,8 +39,8 @@ def prediction_results_all_threshold():
 
 def test_prediction_returns_expected_model_structure(client, prediction_results_standard):
     """Prediction returns results with model and predicted_end_quarter for each model."""
-    with patch.object(app_module, "get_prediction_results", return_value=prediction_results_standard):
-        response = client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = lambda refresh=False: prediction_results_standard
+    response = client.get("/prediction")
     assert response.status_code == 200
     data = response.json()
     assert "results" in data
@@ -57,8 +52,8 @@ def test_prediction_returns_expected_model_structure(client, prediction_results_
 
 def test_prediction_includes_all_three_models(client, prediction_results_standard):
     """Prediction returns exactly three model results."""
-    with patch.object(app_module, "get_prediction_results", return_value=prediction_results_standard):
-        response = client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = lambda refresh=False: prediction_results_standard
+    response = client.get("/prediction")
     data = response.json()
     models = {r["model"] for r in data["results"]}
     assert "Exponential smoothing" in models
@@ -69,8 +64,8 @@ def test_prediction_includes_all_three_models(client, prediction_results_standar
 
 def test_prediction_quarter_format_or_threshold_message(client, prediction_results_standard):
     """Each predicted_end_quarter is either YYYYQN or the threshold message."""
-    with patch.object(app_module, "get_prediction_results", return_value=prediction_results_standard):
-        response = client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = lambda refresh=False: prediction_results_standard
+    response = client.get("/prediction")
     data = response.json()
     for r in data["results"]:
         val = r["predicted_end_quarter"]
@@ -82,8 +77,8 @@ def test_prediction_quarter_format_or_threshold_message(client, prediction_resul
 
 def test_prediction_handles_all_threshold_results(client, prediction_results_all_threshold):
     """Prediction handles case when all models return threshold-not-reached."""
-    with patch.object(app_module, "get_prediction_results", return_value=prediction_results_all_threshold):
-        response = client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = lambda refresh=False: prediction_results_all_threshold
+    response = client.get("/prediction")
     assert response.status_code == 200
     data = response.json()
     assert len(data["results"]) == 3
@@ -98,7 +93,7 @@ def test_prediction_sparse_recruiting_data(client):
         {"model": "SARIMAX (losses + recruiting)", "predicted_end_quarter": "— (not below threshold in 20q)"},
         {"model": "Ridge recursive (losses + recruiting)", "predicted_end_quarter": "— (not below threshold in 20q)"},
     ]
-    with patch.object(app_module, "get_prediction_results", return_value=results):
-        response = client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = lambda refresh=False: results
+    response = client.get("/prediction")
     assert response.status_code == 200
     assert len(response.json()["results"]) == 3

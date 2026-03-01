@@ -1,86 +1,83 @@
 """
 Acceptance test 2: External API failure and resilience.
 Simulates timeouts, 4xx/5xx, malformed responses; verifies API fails (does not return 200).
+Uses dependency_overrides to inject failing data providers.
 """
-
-import importlib
-from unittest.mock import patch
 
 import pytest
 import requests
 
-from fastapi.testclient import TestClient
-
 from api import app
+from api.app import get_economics_data, get_losses_data, get_prediction_data
 
-app_module = importlib.import_module("api.app")
 pytestmark = pytest.mark.acceptance
 
 
-@pytest.fixture
-def client():
-    return TestClient(app)
+def test_losses_timeout_does_not_return_200(client):
+    """When losses pipeline times out, API returns 503 (handled by global exception handler)."""
 
-
-def test_losses_timeout_does_not_return_200(client: TestClient):
-    """When losses pipeline times out, request fails (exception propagates)."""
-    def raise_timeout(*args, **kwargs):
+    def raise_timeout(refresh=False):
         raise requests.Timeout("Connection timed out")
 
-    with patch.object(app_module, "get_losses_grouped_quarterly", side_effect=raise_timeout):
-        with pytest.raises(requests.Timeout):
-            client.get("/losses")
+    app.dependency_overrides[get_losses_data] = raise_timeout
+    response = client.get("/losses")
+    assert response.status_code == 503
 
 
-def test_losses_upstream_4xx_does_not_return_200(client: TestClient):
-    """When upstream returns 4xx, request fails (exception or 5xx)."""
-    def raise_404(*args, **kwargs):
+def test_losses_upstream_4xx_does_not_return_200(client):
+    """When upstream returns 4xx, API returns 503."""
+
+    def raise_404(refresh=False):
         resp = requests.Response()
         resp.status_code = 404
         raise requests.HTTPError("404 Not Found", response=resp)
 
-    with patch.object(app_module, "get_losses_grouped_quarterly", side_effect=raise_404):
-        with pytest.raises(requests.HTTPError):
-            client.get("/losses")
+    app.dependency_overrides[get_losses_data] = raise_404
+    response = client.get("/losses")
+    assert response.status_code == 503
 
 
-def test_losses_upstream_5xx_does_not_return_200(client: TestClient):
-    """When upstream returns 5xx, request fails (exception or 5xx)."""
-    def raise_502(*args, **kwargs):
+def test_losses_upstream_5xx_does_not_return_200(client):
+    """When upstream returns 5xx, API returns 503."""
+
+    def raise_502(refresh=False):
         resp = requests.Response()
         resp.status_code = 502
         raise requests.HTTPError("502 Bad Gateway", response=resp)
 
-    with patch.object(app_module, "get_losses_grouped_quarterly", side_effect=raise_502):
-        with pytest.raises(requests.HTTPError):
-            client.get("/losses")
+    app.dependency_overrides[get_losses_data] = raise_502
+    response = client.get("/losses")
+    assert response.status_code == 503
 
 
-def test_losses_malformed_json_does_not_return_200(client: TestClient):
-    """When pipeline raises due to malformed upstream response, request fails."""
-    def raise_value_error(*args, **kwargs):
+def test_losses_malformed_json_does_not_return_200(client):
+    """When pipeline raises due to malformed upstream response, API returns 503."""
+
+    def raise_value_error(refresh=False):
         raise ValueError("Invalid JSON from upstream")
 
-    with patch.object(app_module, "get_losses_grouped_quarterly", side_effect=raise_value_error):
-        with pytest.raises(ValueError):
-            client.get("/losses")
+    app.dependency_overrides[get_losses_data] = raise_value_error
+    response = client.get("/losses")
+    assert response.status_code == 503
 
 
-def test_economics_empty_payload_does_not_return_200(client: TestClient):
-    """When economics pipeline raises due to empty upstream data, request fails."""
-    def raise_runtime(*args, **kwargs):
+def test_economics_empty_payload_does_not_return_200(client):
+    """When economics pipeline raises due to empty upstream data, API returns 503."""
+
+    def raise_runtime(refresh=False):
         raise RuntimeError("No IMF WEO data returned for Russia.")
 
-    with patch.object(app_module, "get_economics_grouped_quarterly", side_effect=raise_runtime):
-        with pytest.raises(RuntimeError):
-            client.get("/economics")
+    app.dependency_overrides[get_economics_data] = raise_runtime
+    response = client.get("/economics")
+    assert response.status_code == 503
 
 
-def test_prediction_upstream_failure_does_not_return_200(client: TestClient):
-    """When prediction fails (e.g. merge error), request fails."""
-    def raise_value_error(*args, **kwargs):
+def test_prediction_upstream_failure_does_not_return_200(client):
+    """When prediction fails (e.g. merge error), API returns 503."""
+
+    def raise_value_error(refresh=False):
         raise ValueError("No personnel column in merged data")
 
-    with patch.object(app_module, "get_prediction_results", side_effect=raise_value_error):
-        with pytest.raises(ValueError):
-            client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = raise_value_error
+    response = client.get("/prediction")
+    assert response.status_code == 503

@@ -9,10 +9,11 @@ import io
 import pandas as pd
 import requests
 
-from config import YEAR_MAX, YEAR_MIN
+from config import REQUEST_TIMEOUT, REQUEST_TIMEOUT_SHORT, YEAR_MAX, YEAR_MIN
+from pipelines.base import QuarterlyPipeline
 
 
-class EconomicsPipeline:
+class EconomicsPipeline(QuarterlyPipeline):
     """Fetch and aggregate economics data (annual → quarterly, 2022–2025)."""
 
     # IMF World Economic Outlook
@@ -33,8 +34,8 @@ class EconomicsPipeline:
     WB_COUNTRY = "RUS"
     WB_DATE_RANGE = "2020:2030"
     WB_EXPORTS_INDICATOR = "NE.EXP.GNFS.ZS"
-    WB_EXPORTS_CD = "NE.EXP.GNFS.CD"   # Exports of goods and services (current US$)
-    WB_IMPORTS_CD = "NE.IMP.GNFS.CD"   # Imports of goods and services (current US$)
+    WB_EXPORTS_CD = "NE.EXP.GNFS.CD"  # Exports of goods and services (current US$)
+    WB_IMPORTS_CD = "NE.IMP.GNFS.CD"  # Imports of goods and services (current US$)
 
     # Oil price: IMF PCPS via DBnomics (Urals not in PCPS; we use Brent crude $/bbl)
     DBNOMICS_BASE = "https://api.db.nomics.world/v22"
@@ -46,17 +47,11 @@ class EconomicsPipeline:
 
     def fetch_imf_weo(self) -> pd.DataFrame:
         """Fetch Russian economics from IMF WEO. Returns annual DataFrame."""
-        url = (
-            f"{self.IMF_WEO_BASE}/~/*"
-            f"?c[TIME_PERIOD]=ge:{self.IMF_START_YEAR}-01"
-        )
-        resp = requests.get(url, headers={"Accept": "text/csv"}, timeout=60)
+        url = f"{self.IMF_WEO_BASE}/~/*?c[TIME_PERIOD]=ge:{self.IMF_START_YEAR}-01"
+        resp = requests.get(url, headers={"Accept": "text/csv"}, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         df = pd.read_csv(io.StringIO(resp.text), low_memory=False)
-        df = df[
-            (df["COUNTRY"] == self.IMF_COUNTRY)
-            & (df["INDICATOR"].isin(self.IMF_INDICATORS))
-        ].copy()
+        df = df[(df["COUNTRY"] == self.IMF_COUNTRY) & (df["INDICATOR"].isin(self.IMF_INDICATORS))].copy()
         if df.empty:
             return pd.DataFrame()
         df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce")
@@ -71,11 +66,8 @@ class EconomicsPipeline:
 
     def fetch_wb_exports(self) -> pd.DataFrame:
         """Fetch Russian exports of goods and services (% of GDP) from World Bank WDI."""
-        url = (
-            f"{self.WORLD_BANK_BASE}/country/{self.WB_COUNTRY}/indicator/{self.WB_EXPORTS_INDICATOR}"
-            f"?date={self.WB_DATE_RANGE}&format=json&per_page=500"
-        )
-        resp = requests.get(url, timeout=30)
+        url = f"{self.WORLD_BANK_BASE}/country/{self.WB_COUNTRY}/indicator/{self.WB_EXPORTS_INDICATOR}?date={self.WB_DATE_RANGE}&format=json&per_page=500"
+        resp = requests.get(url, timeout=REQUEST_TIMEOUT_SHORT)
         resp.raise_for_status()
         data = resp.json()
         if not data or len(data) < 2:
@@ -99,11 +91,8 @@ class EconomicsPipeline:
 
     def fetch_wb_indicator(self, indicator: str) -> pd.DataFrame:
         """Fetch one World Bank indicator for Russia (annual). Returns DataFrame with year and value column."""
-        url = (
-            f"{self.WORLD_BANK_BASE}/country/{self.WB_COUNTRY}/indicator/{indicator}"
-            f"?date={self.WB_DATE_RANGE}&format=json&per_page=500"
-        )
-        resp = requests.get(url, timeout=60)
+        url = f"{self.WORLD_BANK_BASE}/country/{self.WB_COUNTRY}/indicator/{indicator}?date={self.WB_DATE_RANGE}&format=json&per_page=500"
+        resp = requests.get(url, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
         if not data or len(data) < 2:
@@ -149,7 +138,7 @@ class EconomicsPipeline:
         Series is Brent crude $/bbl (Urals is not in IMF PCPS; Brent is used as the oil price series)."""
         try:
             url = f"{self.DBNOMICS_BASE}/series/IMF/PCPS/M.W00.POILBRE.USD?observations=1&format=json"
-            resp = requests.get(url, timeout=60)
+            resp = requests.get(url, timeout=REQUEST_TIMEOUT)
             resp.raise_for_status()
             data = resp.json()
             series = data.get("series", {})
@@ -209,9 +198,7 @@ class EconomicsPipeline:
         # budget_balance_pct_gdp comes from IMF WEO (GGXCNL_NGDP); add if missing
         if "budget_balance_pct_gdp" not in df_annual.columns:
             df_annual["budget_balance_pct_gdp"] = float("nan")
-        df_annual = df_annual[
-            (df_annual["year"] >= self.year_min) & (df_annual["year"] <= self.year_max)
-        ].sort_values("year").reset_index(drop=True)
+        df_annual = df_annual[(df_annual["year"] >= self.year_min) & (df_annual["year"] <= self.year_max)].sort_values("year").reset_index(drop=True)
         return df_annual
 
     @staticmethod
@@ -243,6 +230,10 @@ class EconomicsPipeline:
         else:
             df_quarterly["urals_oil_price"] = float("nan")
         return df_quarterly
+
+    def get_quarterly(self, verbose: bool = False) -> pd.DataFrame:
+        """Implement QuarterlyPipeline. Returns same as get_grouped_quarterly()."""
+        return self.get_grouped_quarterly(verbose=verbose)
 
 
 if __name__ == "__main__":

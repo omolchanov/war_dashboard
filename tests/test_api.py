@@ -1,25 +1,18 @@
 """
 Tests for WarDashboard API endpoints.
-Uses mocked data so tests do not depend on external APIs.
+Uses dependency overrides for mocked data (no external APIs).
 """
-
-import importlib
-from unittest.mock import patch
 
 import pandas as pd
 import pytest
-from fastapi.testclient import TestClient
 
 from api import app
-
-# Module where get_losses_grouped_quarterly / get_economics_grouped_quarterly live (for patching)
-app_module = importlib.import_module("api.app")
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
-
+from api.app import (
+    get_economics_data,
+    get_losses_data,
+    get_prediction_data,
+    get_recruiting_data,
+)
 
 # --- Mock data ---
 
@@ -84,22 +77,22 @@ def test_root_returns_api_info(client):
 
 
 def test_losses_returns_200(client, sample_losses_df):
-    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=sample_losses_df):
-        response = client.get("/losses")
+    app.dependency_overrides[get_losses_data] = lambda refresh=False: sample_losses_df
+    response = client.get("/losses")
     assert response.status_code == 200
 
 
 def test_losses_returns_json_list(client, sample_losses_df):
-    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=sample_losses_df):
-        response = client.get("/losses")
+    app.dependency_overrides[get_losses_data] = lambda refresh=False: sample_losses_df
+    response = client.get("/losses")
     data = response.json()
     assert isinstance(data, list)
     assert len(data) == 2
 
 
 def test_losses_records_have_expected_keys(client, sample_losses_df):
-    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=sample_losses_df):
-        response = client.get("/losses")
+    app.dependency_overrides[get_losses_data] = lambda refresh=False: sample_losses_df
+    response = client.get("/losses")
     data = response.json()
     expected_keys = {"period", "year", "quarter", "personnel", "uav", "air_defense_systems"}
     for record in data:
@@ -107,16 +100,16 @@ def test_losses_records_have_expected_keys(client, sample_losses_df):
 
 
 def test_losses_dates_are_iso_format(client, sample_losses_df):
-    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=sample_losses_df):
-        response = client.get("/losses")
+    app.dependency_overrides[get_losses_data] = lambda refresh=False: sample_losses_df
+    response = client.get("/losses")
     data = response.json()
     assert data[0]["period"] == "2022-01-01"
     assert data[1]["period"] == "2022-04-01"
 
 
 def test_losses_values_match_mock(client, sample_losses_df):
-    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=sample_losses_df):
-        response = client.get("/losses")
+    app.dependency_overrides[get_losses_data] = lambda refresh=False: sample_losses_df
+    response = client.get("/losses")
     data = response.json()
     assert data[0]["personnel"] == 100 and data[0]["uav"] == 5 and data[0]["air_defense_systems"] == 1
     assert data[1]["personnel"] == 200 and data[1]["uav"] == 10 and data[1]["air_defense_systems"] == 2
@@ -126,31 +119,41 @@ def test_losses_values_match_mock(client, sample_losses_df):
 
 
 def test_economics_returns_200(client, sample_economics_df):
-    with patch.object(app_module, "get_economics_grouped_quarterly", return_value=sample_economics_df):
-        response = client.get("/economics")
+    app.dependency_overrides[get_economics_data] = lambda refresh=False: sample_economics_df
+    response = client.get("/economics")
     assert response.status_code == 200
 
 
 def test_economics_returns_json_list(client, sample_economics_df):
-    with patch.object(app_module, "get_economics_grouped_quarterly", return_value=sample_economics_df):
-        response = client.get("/economics")
+    app.dependency_overrides[get_economics_data] = lambda refresh=False: sample_economics_df
+    response = client.get("/economics")
     data = response.json()
     assert isinstance(data, list)
     assert len(data) == 2
 
 
 def test_economics_records_have_expected_keys(client, sample_economics_df):
-    with patch.object(app_module, "get_economics_grouped_quarterly", return_value=sample_economics_df):
-        response = client.get("/economics")
+    app.dependency_overrides[get_economics_data] = lambda refresh=False: sample_economics_df
+    response = client.get("/economics")
     data = response.json()
-    expected_keys = {"period", "year", "gdp_growth", "inflation", "debt_pct_gdp", "trade_pct_gdp", "balance_of_trade", "budget_balance_pct_gdp", "urals_oil_price"}
+    expected_keys = {
+        "period",
+        "year",
+        "gdp_growth",
+        "inflation",
+        "debt_pct_gdp",
+        "trade_pct_gdp",
+        "balance_of_trade",
+        "budget_balance_pct_gdp",
+        "urals_oil_price",
+    }
     for record in data:
         assert set(record.keys()) == expected_keys
 
 
 def test_economics_dates_are_iso_format(client, sample_economics_df):
-    with patch.object(app_module, "get_economics_grouped_quarterly", return_value=sample_economics_df):
-        response = client.get("/economics")
+    app.dependency_overrides[get_economics_data] = lambda refresh=False: sample_economics_df
+    response = client.get("/economics")
     data = response.json()
     assert data[0]["period"] == "2022-01-01"
     assert data[1]["period"] == "2022-04-01"
@@ -176,26 +179,30 @@ def sample_recruiting_df():
 
 
 def test_recruiting_returns_200(client, sample_recruiting_df):
-    with patch.object(app_module, "get_recruiting", return_value=sample_recruiting_df):
-        response = client.get("/recruiting")
+    app.dependency_overrides[get_recruiting_data] = lambda refresh=False: sample_recruiting_df
+    response = client.get("/recruiting")
     assert response.status_code == 200
 
 
 def test_recruiting_returns_json_list(client, sample_recruiting_df):
-    with patch.object(app_module, "get_recruiting", return_value=sample_recruiting_df):
-        response = client.get("/recruiting")
+    app.dependency_overrides[get_recruiting_data] = lambda refresh=False: sample_recruiting_df
+    response = client.get("/recruiting")
     data = response.json()
     assert isinstance(data, list)
     assert len(data) == 2
 
 
 def test_recruiting_records_have_expected_keys(client, sample_recruiting_df):
-    with patch.object(app_module, "get_recruiting", return_value=sample_recruiting_df):
-        response = client.get("/recruiting")
+    app.dependency_overrides[get_recruiting_data] = lambda refresh=False: sample_recruiting_df
+    response = client.get("/recruiting")
     data = response.json()
     expected_keys = {
-        "period", "year", "quarter",
-        "contracts_signed_avg_per_quarter", "contracts_min_avg_per_quarter", "contracts_max_avg_per_quarter",
+        "period",
+        "year",
+        "quarter",
+        "contracts_signed_avg_per_quarter",
+        "contracts_min_avg_per_quarter",
+        "contracts_max_avg_per_quarter",
         "source",
     }
     for record in data:
@@ -216,22 +223,22 @@ def sample_prediction_results():
 
 
 def test_prediction_returns_200(client, sample_prediction_results):
-    with patch.object(app_module, "get_prediction_results", return_value=sample_prediction_results):
-        response = client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = lambda refresh=False: sample_prediction_results
+    response = client.get("/prediction")
     assert response.status_code == 200
 
 
 def test_prediction_returns_results_key(client, sample_prediction_results):
-    with patch.object(app_module, "get_prediction_results", return_value=sample_prediction_results):
-        response = client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = lambda refresh=False: sample_prediction_results
+    response = client.get("/prediction")
     data = response.json()
     assert "results" in data
     assert isinstance(data["results"], list)
 
 
 def test_prediction_results_have_model_and_predicted_end_quarter(client, sample_prediction_results):
-    with patch.object(app_module, "get_prediction_results", return_value=sample_prediction_results):
-        response = client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = lambda refresh=False: sample_prediction_results
+    response = client.get("/prediction")
     data = response.json()
     assert len(data["results"]) == 3
     for record in data["results"]:
@@ -241,15 +248,15 @@ def test_prediction_results_have_model_and_predicted_end_quarter(client, sample_
 
 
 def test_prediction_values_match_mock(client, sample_prediction_results):
-    with patch.object(app_module, "get_prediction_results", return_value=sample_prediction_results):
-        response = client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = lambda refresh=False: sample_prediction_results
+    response = client.get("/prediction")
     data = response.json()
     assert data["results"] == sample_prediction_results
 
 
 def test_prediction_empty_results_when_get_prediction_returns_empty(client):
-    with patch.object(app_module, "get_prediction_results", return_value=[]):
-        response = client.get("/prediction")
+    app.dependency_overrides[get_prediction_data] = lambda refresh=False: []
+    response = client.get("/prediction")
     assert response.status_code == 200
     data = response.json()
     assert data["results"] == []
@@ -268,8 +275,8 @@ def test_recruiting_nan_becomes_null(client):
             "source": ["No data for 2022"],
         }
     )
-    with patch.object(app_module, "get_recruiting", return_value=df):
-        response = client.get("/recruiting")
+    app.dependency_overrides[get_recruiting_data] = lambda refresh=False: df
+    response = client.get("/recruiting")
     assert response.status_code == 200
     data = response.json()
     assert data[0]["contracts_signed_avg_per_quarter"] is None
@@ -292,8 +299,8 @@ def test_economics_nan_becomes_null(client):
             "urals_oil_price": [80.0],
         }
     )
-    with patch.object(app_module, "get_economics_grouped_quarterly", return_value=df):
-        response = client.get("/economics")
+    app.dependency_overrides[get_economics_data] = lambda refresh=False: df
+    response = client.get("/economics")
     assert response.status_code == 200
     data = response.json()
     assert data[0]["trade_pct_gdp"] is None
@@ -304,8 +311,8 @@ def test_economics_nan_becomes_null(client):
 
 def test_losses_empty_list_when_no_data(client):
     empty_df = pd.DataFrame(columns=["period", "year", "quarter", "personnel", "uav", "air_defense_systems"])
-    with patch.object(app_module, "get_losses_grouped_quarterly", return_value=empty_df):
-        response = client.get("/losses")
+    app.dependency_overrides[get_losses_data] = lambda refresh=False: empty_df
+    response = client.get("/losses")
     assert response.status_code == 200
     assert response.json() == []
 
@@ -314,20 +321,26 @@ def test_economics_empty_list_when_no_data(client):
     empty_df = pd.DataFrame(
         columns=["period", "year", "gdp_growth", "inflation", "debt_pct_gdp", "trade_pct_gdp", "balance_of_trade", "budget_balance_pct_gdp", "urals_oil_price"]
     )
-    with patch.object(app_module, "get_economics_grouped_quarterly", return_value=empty_df):
-        response = client.get("/economics")
+    app.dependency_overrides[get_economics_data] = lambda refresh=False: empty_df
+    response = client.get("/economics")
     assert response.status_code == 200
     assert response.json() == []
 
 
 def test_recruiting_empty_list_when_no_data(client):
-    empty_df = pd.DataFrame(columns=[
-        "period", "year", "quarter",
-        "contracts_signed_avg_per_quarter", "contracts_min_avg_per_quarter", "contracts_max_avg_per_quarter",
-        "source",
-    ])
-    with patch.object(app_module, "get_recruiting", return_value=empty_df):
-        response = client.get("/recruiting")
+    empty_df = pd.DataFrame(
+        columns=[
+            "period",
+            "year",
+            "quarter",
+            "contracts_signed_avg_per_quarter",
+            "contracts_min_avg_per_quarter",
+            "contracts_max_avg_per_quarter",
+            "source",
+        ]
+    )
+    app.dependency_overrides[get_recruiting_data] = lambda refresh=False: empty_df
+    response = client.get("/recruiting")
     assert response.status_code == 200
     assert response.json() == []
 

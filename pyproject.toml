@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wardashboard"
+version = "0.1.0"
+description = "API, pipelines, analysis, and prediction for war-related data (losses, economics, recruiting)."
+readme = "readme.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.28.0",
+    "pandas>=2.0.0",
+    "matplotlib>=3.7.0",
+    "sktime>=0.28.0",
+    "statsmodels>=0.14.0",
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pytest>=7.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+wardashboard-prediction = "prediction.run_prediction:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api*", "pipelines*", "prediction*", "analysis*", "utils*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 160
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["N802", "N803", "N806", "E501"]
+per-file-ignores = { "__init__.py" = ["F401"] }
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

@@ -30,21 +30,38 @@ Data file: `data/russia_recruiting.csv`. Quarterly output columns: `contracts_si
 
 ---
 
+## Configuration
+
+Optional environment variables (prefix `WAR_DASHBOARD_`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `YEAR_MIN` | 2022 | Start year for data filter |
+| `YEAR_MAX` | 2025 | End year for data filter |
+| `REQUEST_TIMEOUT` | 60 | HTTP timeout (seconds) for external API calls |
+| `REQUEST_TIMEOUT_SHORT` | 30 | Shorter timeout for quick requests |
+
+---
+
 ## Project structure
 
 ```
 WarDashboard/
-  config.py                 # YEAR_MIN, YEAR_MAX (shared)
+  config.py                 # Year range, timeouts (env overrides)
+  pyproject.toml            # Project metadata, ruff/mypy config
   data/
     russia_recruiting.csv   # Curated Russia contract recruitment estimates (annual)
   utils/
     __init__.py
+    data_loader.py          # Shared load_quarterly_merged (merge all pipelines)
     serialization.py        # DataFrame → JSON records (ISO dates, NaN→null)
   api/
     __init__.py
-    app.py                  # FastAPI app and routes (losses, economics, recruiting, prediction)
+    app.py                  # FastAPI app, routes, v1 router, exception handlers
+    schemas.py              # Pydantic response models
   pipelines/
     __init__.py
+    base.py                 # QuarterlyPipeline ABC (get_quarterly interface)
     losses.py               # LossesPipeline (quarterly)
     economics.py            # EconomicsPipeline (quarterly)
     recruiting.py           # RecruitingPipeline (annual → quarterly average)
@@ -52,7 +69,9 @@ WarDashboard/
     run_analysis.py         # Correlation: top-5 feature pairs (quarterly merged data)
     README.md
   prediction/
-    run_prediction.py       # War-end quarter prediction (Expo, SARIMAX, Ridge; uses losses + recruiting)
+    data.py                 # get_personnel_series, get_recruiting_series
+    models.py               # get_prediction_results, model logic (no print)
+    run_prediction.py       # CLI entry point, prints results
     README.md
   tests/
     test_api.py
@@ -90,6 +109,7 @@ python -m prediction.run_prediction
 | **Economics** | http://localhost:8000/economics | Quarterly economics (gdp_growth, inflation, trade_pct_gdp, debt_pct_gdp, balance_of_trade, budget_balance_pct_gdp, urals_oil_price) |
 | **Recruiting**| http://localhost:8000/recruiting | Quarterly recruiting (contracts_signed_avg_per_quarter, etc.; curated annual ÷ 4) |
 | **Prediction**| http://localhost:8000/prediction | Prediction results: list of `{ model, predicted_end_quarter }` (Exponential smoothing, SARIMAX, Ridge; uses losses + recruiting) |
+| **v1 API**    | http://localhost:8000/v1/ | Versioned API: `/v1/losses`, `/v1/economics`, `/v1/recruiting`, `/v1/prediction` (same data, Pydantic-validated responses) |
 
 ---
 
